@@ -1,9 +1,13 @@
 name: Deploy to GitHub Pages
 
 on:
+  # Trigger the workflow on pushes to the import-export-feat branch
   push:
     branches:
       - import-export-feat
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -11,6 +15,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          # You need to specify the branch to checkout when running manually
+          ref: 'import-export-feat'
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -26,5 +33,5 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          branch: gh-pages       # The branch the action should deploy to.
-          folder: dist           # The folder that the build script outputs to.
+          branch: gh-pages      # The branch the action should deploy to.
+          folder: dist          # The folder that the build script outputs to.
