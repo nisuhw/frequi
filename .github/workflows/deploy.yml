@@ -26,7 +26,7 @@ jobs:
         run: pnpm install
 
       - name: Build Vue app
-        run: pnpm run build
+        run: pnpm run build --base=/frequi
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
