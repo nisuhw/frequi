@@ -1,0 +1,2 @@
+import{m as o,c as t,a,e as n}from"./index-DvLAGnun.js";const r={viewBox:"0 0 24 24",width:"1.2em",height:"1.2em"};function m(c,e){return a(),t("svg",r,e[0]||(e[0]=[n("path",{fill:"currentColor",d:"M19 21H8V7h11m0-2H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m-3-4H4a2 2 0 0 0-2 2v14h2V3h12z"},null,-1)]))}const i=o({name:"mdi-content-copy",render:m});export{i as _};
+//# sourceMappingURL=content-copy-D-cj8dx4.js.map
