@@ -15,14 +15,16 @@ export interface ForceEnterPayload {
   leverage?: number;
 }
 
-export interface ForceSellPayload {
+export interface ForceExitPayload {
   tradeid: string | number;
   ordertype?: string;
   amount?: number;
+  /* Available starting with v2.44 */
+  price?: number;
 }
 
 /** Interface only used internally to ensure the right bot is being called in a multibot environment. */
-export interface MultiForcesellPayload extends ForceSellPayload {
+export interface MultiForceExitPayload extends ForceExitPayload {
   botId: string;
 }
 
@@ -137,6 +139,7 @@ export interface BotState {
   dry_run: boolean;
   /** Futures, margin or spot */
   trading_mode?: TradingMode;
+  margin_mode?: MarginMode;
   short_allowed?: boolean;
   state: BotStates;
   runmode: RunModes;

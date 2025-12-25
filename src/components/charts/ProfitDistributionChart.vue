@@ -14,7 +14,6 @@ import {
 } from 'echarts/components';
 
 import type { ClosedTrade } from '@/types';
-import { useSettingsStore } from '@/stores/settings';
 
 use([
   BarChart,
@@ -31,10 +30,15 @@ use([
 // Define Column labels here to avoid typos
 const CHART_PROFIT = 'Trade count';
 
-const props = defineProps({
-  trades: { required: true, type: Array as () => ClosedTrade[] },
-  showTitle: { default: true, type: Boolean },
-});
+const props = withDefaults(
+  defineProps<{
+    trades: ClosedTrade[];
+    showTitle?: boolean;
+  }>(),
+  {
+    showTitle: true,
+  },
+);
 const settingsStore = useSettingsStore();
 // registerTransform(ecStat.transform.histogram);
 // console.log(profits);
@@ -47,7 +51,9 @@ const binOptions = [
   { text: '50', value: 50 },
 ];
 const data = computed(() => {
-  const profits = props.trades.map((trade) => trade.profit_ratio);
+  const profits = props.trades
+    .filter((trade) => isDefined(trade.profit_ratio))
+    .map((trade) => trade.profit_ratio ?? 0);
 
   return binData(profits, settingsStore.profitDistributionBins);
 });
@@ -75,6 +81,7 @@ const chartOptions = computed((): EChartsOption => {
     legend: {
       data: [CHART_PROFIT],
       right: '5%',
+      top: 0,
       selectedMode: false,
     },
     xAxis: {

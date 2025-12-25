@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import { OpenTradeVizOptions, useSettingsStore } from '@/stores/settings';
-import { useLayoutStore } from '@/stores/layout';
 import { FtWsMessageTypes } from '@/types/wsMessageTypes';
-import { ColorPreferences, useColorStore } from '@/stores/colors';
 
 const settingsStore = useSettingsStore();
 const colorStore = useColorStore();
@@ -116,9 +113,9 @@ const resetDynamicLayout = () => {
                 <label class="ml-2">Right</label>
               </div>
             </div>
-            <small class="text-surface-600 dark:text-surface-400"
-              >Should the scale be displayed on the right or left?</small
-            >
+            <small class="text-surface-600 dark:text-surface-400">
+              Should the scale be displayed on the right or left?
+            </small>
           </div>
 
           <BaseCheckbox v-model="settingsStore.useHeikinAshiCandles" class="space-y-1">
@@ -134,8 +131,28 @@ const resetDynamicLayout = () => {
             >
           </BaseCheckbox>
 
+          <div>
+            <p>Default number of candles to display (defaults to 250)</p>
+            <div class="flex flex-row gap-5 w-full items-center">
+              <Slider
+                v-model="settingsStore.chartDefaultCandleCount"
+                class="flex-1"
+                :step="50"
+                :min="100"
+                :max="2000"
+              />
+              <InputNumber
+                v-model="settingsStore.chartDefaultCandleCount"
+                :step="50"
+                :min="100"
+                :max="2000"
+                size="small"
+              />
+            </div>
+          </div>
+
           <div class="space-y-1">
-            <label class="block text-sm">Candle Color Preference</label>
+            <label class="block">Candle Color Preference</label>
             <div class="flex flex-row gap-5 items-center">
               <div
                 v-for="option in colorPreferenceOptions"

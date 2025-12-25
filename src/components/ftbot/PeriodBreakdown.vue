@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useBotStore } from '@/stores/ftbotwrapper';
 import { TimeSummaryOptions } from '@/types';
 
 const botStore = useBotStore();
@@ -9,7 +8,9 @@ const props = defineProps<{
   multiBotView?: boolean;
 }>();
 
-const hasWeekly = computed(() => botStore.activeBot.botApiVersion >= 2.33 || props.multiBotView);
+const hasWeekly = computed(
+  () => botStore.activeBot?.botFeatures?.weeklyMonthlyStats || props.multiBotView,
+);
 
 const periodicBreakdownSelections = computed(() => {
   const vals = [{ value: TimeSummaryOptions.daily, text: 'Days' }];
@@ -107,13 +108,21 @@ onMounted(() => {
       </SelectButton>
     </div>
 
-    <div class="ps-1">
+    <div
+      v-if="
+        props.multiBotView &&
+        (botStore.selectedBotCount <= 1 || settingsStore.timeProfitPreference != 'rel_profit')
+      "
+    >
       <TimePeriodChart
         v-if="selectedStats"
         :daily-stats="selectedStatsSorted"
         :show-title="false"
         :profit-col="settingsStore.timeProfitPreference"
       />
+    </div>
+    <div v-else class="flex items-center justify-center h-full w-full p-2">
+      Time period chart is only available when a single bot is selected and showing absolute profit.
     </div>
     <div v-if="!props.multiBotView">
       <DataTable size="small" :value="selectedStats.data">
@@ -132,7 +141,11 @@ onMounted(() => {
           </template>
         </Column>
         <Column field="trade_count" header="Trades"></Column>
-        <Column v-if="botStore.activeBot.botApiVersion >= 2.16" field="rel_profit" header="Profit%">
+        <Column
+          v-if="botStore.activeBot.botFeatures.advancedDailyMetrics"
+          field="rel_profit"
+          header="Profit%"
+        >
           <template #body="{ data, field }">
             {{ formatPercent(data[field], 2) }}
           </template>

@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import { useBotStore } from '@/stores/ftbotwrapper';
-import type { ProfitInterface, ComparisonTableItems } from '@/types';
+import type { ComparisonTableItems } from '@/types';
 
 const botStore = useBotStore();
 
 const allToggled = computed<boolean>({
   get: () => Object.values(botStore.botStores).every((i) => i.isSelected),
   set: (val) => {
-    for (const botId in botStore.botStores) {
-      botStore.botStores[botId].isSelected = val;
+    for (const bot of Object.values(botStore.botStores)) {
+      bot.isSelected = val;
     }
   },
 });
@@ -25,16 +24,22 @@ const tableItems = computed<ComparisonTableItems[]>(() => {
     stakeCurrency: 'USDT',
     wins: 0,
     losses: 0,
+    balance: 0,
+    balanceAppendix: '',
   };
+  Object.entries(botStore.allProfit).forEach(([k, v]) => {
+    const thisBotStore = botStore.botStores[k];
+    if (!thisBotStore) return;
 
-  Object.entries(botStore.allProfit).forEach(([k, v]: [k: string, v: ProfitInterface]) => {
-    const allStakes = botStore.allOpenTrades[k].reduce((a, b) => a + b.stake_amount, 0);
+    const allOpenTrades = botStore.allOpenTrades[k];
+    if (!allOpenTrades) return;
+    const allStakes = allOpenTrades.reduce((a, b) => a + b.stake_amount, 0);
     const profitOpenRatio =
-      botStore.allOpenTrades[k].reduce(
-        (a, b) => a + (b.total_profit_ratio ?? b.profit_ratio) * b.stake_amount,
+      allOpenTrades.reduce(
+        (a, b) => a + (b.total_profit_ratio ?? b.profit_ratio ?? 0) * b.stake_amount,
         0,
       ) / allStakes;
-    const profitOpen = botStore.allOpenTrades[k].reduce(
+    const profitOpen = allOpenTrades.reduce(
       (a, b) => a + (b.total_profit_abs ?? b.profit_abs ?? 0),
       0,
     );
@@ -42,29 +47,43 @@ const tableItems = computed<ComparisonTableItems[]>(() => {
     // TODO: handle one inactive bot ...
     val.push({
       botId: k,
-      botName: botStore.availableBots[k].botName || botStore.availableBots[k].botId,
+      // botName:
+      //   `${thisBotStore.botName} - ${botStore.availableBots[k].botName}` || thisBotStore.botId,
+
+      botName: thisBotStore.uiBotName || thisBotStore.botId,
       trades: `${botStore.allOpenTradeCount[k]} / ${
         botStore.allBotState[k]?.max_open_trades || 'N/A'
       }`,
-      profitClosed: v.profit_closed_coin,
-      profitClosedRatio: v.profit_closed_ratio || 0,
+      profitClosed: v?.profit_closed_coin ?? 0,
+      profitClosedRatio: v?.profit_closed_ratio || 0,
       stakeCurrency: botStore.allBotState[k]?.stake_currency || '',
       profitOpenRatio,
       profitOpen,
-      wins: v.winning_trades,
-      losses: v.losing_trades,
-      balance: botStore.allBalance[k]?.total_bot ?? botStore.allBalance[k]?.total,
+      wins: v?.winning_trades ?? 0,
+      losses: v?.losing_trades ?? 0,
+      balance: botStore.allBalance[k]?.total_bot ?? botStore.allBalance[k]?.total ?? 0,
       stakeCurrencyDecimals: botStore.allBotState[k]?.stake_currency_decimals || 3,
       isDryRun: botStore.allBotState[k]?.dry_run,
       isOnline: botStore.botStores[k]?.isBotOnline,
+      balanceAppendix: botStore.allBotState[k]?.dry_run ? '(dry)' : '',
     });
-    if (v.profit_closed_coin !== undefined) {
-      if (botStore.botStores[k].isSelected) {
+    if (v?.profit_closed_coin !== undefined) {
+      if (thisBotStore.isSelected) {
         // Summary should only include selected bots
         summary.profitClosed += v.profit_closed_coin;
         summary.profitOpen += profitOpen;
         summary.wins += v.winning_trades;
         summary.losses += v.losing_trades;
+        if (botStore.allSelectedBotsSameStake) {
+          summary.balance +=
+            botStore.allBalance[k]?.total_bot ?? botStore.allBalance[k]?.total ?? 0;
+          summary.stakeCurrencyDecimals = botStore.allBotState[k]?.stake_currency_decimals || 3;
+          if (botStore.allSelectedBotsSameState) {
+            summary.balanceAppendix = botStore.allBotState[k]?.dry_run ? '(dry)' : '(live)';
+          } else {
+            summary.balanceAppendix = '(mixed dry and live)';
+          }
+        }
         // summary.decimals = this.allBotState[k]?.stake_currency_decimals || summary.decimals;
         // This will always take the last bot's stake currency
         // And therefore may result in wrong values.
@@ -79,14 +98,26 @@ const tableItems = computed<ComparisonTableItems[]>(() => {
 
 <template>
   <DataTable size="small" :value="tableItems">
-    <Column field="botName" header="Bot">
+    <Column field="botName">
+      <template #header>
+        <div class="flex justify-between flex-row w-full">
+          <b>Bot Name</b
+          ><Badge
+            class="items-center text-slate-200 bg-slate-800 cursor-pointer"
+            severity="contrast"
+            title="Click to select all bots"
+            @click="botStore.toggleBotsByState('all')"
+            >All</Badge
+          >
+        </div>
+      </template>
       <template #body="{ data, field }">
         <div class="flex flex-row justify-between items-center">
           <div>
             <BaseCheckbox
               v-if="data.botId && botStore.botCount > 1"
               v-model="
-                botStore.botStores[(data as unknown as ComparisonTableItems).botId ?? ''].isSelected
+                botStore.botStores[(data as unknown as ComparisonTableItems).botId!]!.isSelected
               "
               title="Show this bot in Dashboard"
               >{{ data[field] }}</BaseCheckbox
@@ -102,11 +133,18 @@ const tableItems = computed<ComparisonTableItems[]>(() => {
           </div>
           <Badge
             v-if="data.isOnline && data.isDryRun"
-            class="items-center bg-green-800 text-slate-200"
+            class="items-center bg-green-800 text-slate-200 cursor-pointer"
             severity="success"
+            title="Click to select all dry run bots"
+            @click="botStore.toggleBotsByState('dry')"
             >Dry</Badge
           >
-          <Badge v-if="data.isOnline && !data.isDryRun" class="items-center" severity="warning"
+          <Badge
+            v-if="data.isOnline && !data.isDryRun"
+            class="items-center cursor-pointer"
+            severity="warning"
+            title="Click to select all live bots"
+            @click="botStore.toggleBotsByState('live')"
             >Live</Badge
           >
           <Badge v-if="data.isOnline === false" class="items-center" severity="secondary"
@@ -150,9 +188,7 @@ const tableItems = computed<ComparisonTableItems[]>(() => {
               )
             }}
           </span>
-          <span class="text-sm">{{
-            ` ${data.stakeCurrency}${data.isDryRun ? ' (dry)' : ''}`
-          }}</span>
+          <span class="text-sm">{{ ` ${data.stakeCurrency}${data.balanceAppendix}` }}</span>
         </div>
       </template>
     </Column>

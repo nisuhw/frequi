@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useBotStore } from '@/stores/ftbotwrapper';
 import { MarginMode, TradingMode } from '@/types';
 import type { ExchangeSelection, Markets, MarketsPayload, PairHistoryPayload } from '@/types';
 
@@ -131,7 +130,7 @@ watch(
             <span>Strategy</span>
             <StrategySelect v-model="chartStore.strategy" class="mt-1 mb-1"></StrategySelect>
             <BaseCheckbox
-              v-if="botStore.activeBot.botApiVersion >= 2.42"
+              v-if="botStore.activeBot.botFeatures.chartLiveData"
               v-model="chartStore.useLiveData"
               class="align-self-center"
               title="Use live data from the exchange. Only use if you don't have data downloaded locally."
@@ -156,10 +155,9 @@ watch(
         :available-pairs="availablePairs"
         :historic-view="botStore.activeBot.isWebserverMode"
         :timeframe="finalTimeframe"
-        :trades="botStore.activeBot.trades"
+        :trades="botStore.activeBot.allTrades"
         :timerange="botStore.activeBot.isWebserverMode ? chartStore.timerange : undefined"
         :strategy="botStore.activeBot.isWebserverMode ? chartStore.strategy : undefined"
-        :plot-config-modal="false"
         @refresh-data="refreshOHLCV"
       >
       </CandleChartContainer>

@@ -1,8 +1,6 @@
 <script setup lang="ts">
-import { useBotStore } from '@/stores/ftbotwrapper';
 import type { BacktestPayload } from '@/types';
 
-import { useBtStore } from '@/stores/btStore';
 const botStore = useBotStore();
 const btStore = useBtStore();
 
@@ -111,12 +109,12 @@ function clickBacktest() {
 
     <label for="enable-protections">Enable Protections:</label>
     <BaseCheckbox id="enable-protections" v-model="btStore.enableProtections"></BaseCheckbox>
-    <template v-if="botStore.activeBot.botApiVersion >= 2.22">
+    <template v-if="botStore.activeBot.botFeatures.backtestFreqAI">
       <label for="enable-cache">Cache Backtest results:</label>
       <BaseCheckbox id="enable-cache" v-model="btStore.allowCache"></BaseCheckbox>
     </template>
 
-    <template v-if="botStore.activeBot.botApiVersion >= 2.22">
+    <template v-if="botStore.activeBot.botFeatures.backtestFreqAI">
       <div class="flex justify-end items-center">
         <span class="me-2">Enable FreqAI:</span>
         <InfoBox

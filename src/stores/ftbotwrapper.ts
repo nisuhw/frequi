@@ -9,9 +9,9 @@ import type {
   TimeSummaryReturnValue,
   MultiCancelOpenOrderPayload,
   MultiDeletePayload,
-  MultiForcesellPayload,
+  MultiForceExitPayload,
   MultiReloadTradePayload,
-  ProfitInterface,
+  ProfitStats,
   Trade,
 } from '@/types';
 import { TimeSummaryOptions } from '@/types';
@@ -47,6 +47,24 @@ export const useBotStore = defineStore('ftbot-wrapper', {
       return Object.values(state.availableBots).sort((a, b) => (a.sortId ?? 0) - (b.sortId ?? 0));
     },
     allBotStores: (state) => Object.values(state.botStores),
+    allSelectedBotsSameStake() {
+      const stakeCurrencies = Object.values(this.selectedBots).map((bot) => bot.stakeCurrency);
+      return (
+        stakeCurrencies.length > 0 &&
+        stakeCurrencies.every((currency) => currency === stakeCurrencies[0])
+      );
+    },
+    /** All selected bots have the same mode (dry or live) */
+    allSelectedBotsSameState() {
+      const modes = Object.values(this.selectedBots).map((bot) => bot.botState.dry_run);
+      return modes.length > 0 && modes.every((mode) => mode === modes[0]);
+    },
+    /** Selected bots for dashboard view */
+    selectedBots: (state) => {
+      return Object.values(state.botStores).filter((store) => store.isSelected);
+    },
+    selectedBotCount: (state) =>
+      Object.values(state.botStores).filter((store) => store.isSelected).length,
     activeBot: (state) => state.botStores[state.selectedBot] as BotSubStore,
     activeBotorUndefined: (state) => state.botStores[state.selectedBot] as BotSubStore | undefined,
     canRunBacktest: (state) => state.botStores[state.selectedBot]?.canRunBacktest ?? false,
@@ -60,8 +78,8 @@ export const useBotStore = defineStore('ftbot-wrapper', {
       }
       return `ftbot.${botCount}`;
     },
-    allProfit: (state): Record<string, ProfitInterface> => {
-      const result: Record<string, ProfitInterface> = {};
+    allProfit: (state): Record<string, ProfitStats | undefined> => {
+      const result: Record<string, ProfitStats | undefined> = {};
       Object.entries(state.botStores).forEach(([k, botStore]) => {
         result[k] = botStore.profit;
       });
@@ -134,12 +152,13 @@ export const useBotStore = defineStore('ftbot-wrapper', {
       Object.entries(state.botStores).forEach(([, botStore]) => {
         if (botStore.isSelected) {
           botStore.dailyStats?.data?.forEach((d) => {
-            if (!resp[d.date]) {
+            const existing = resp[d.date];
+            if (!existing) {
               resp[d.date] = { ...d };
             } else {
-              resp[d.date].abs_profit += d.abs_profit;
-              resp[d.date].fiat_value += d.fiat_value;
-              resp[d.date].trade_count += d.trade_count;
+              existing.abs_profit += d.abs_profit;
+              existing.fiat_value += d.fiat_value;
+              existing.trade_count += d.trade_count;
             }
           });
         }
@@ -157,12 +176,13 @@ export const useBotStore = defineStore('ftbot-wrapper', {
       Object.entries(state.botStores).forEach(([, botStore]) => {
         if (botStore.isSelected) {
           botStore.weeklyStats?.data?.forEach((d) => {
-            if (!resp[d.date]) {
+            const existing = resp[d.date];
+            if (!existing) {
               resp[d.date] = { ...d };
             } else {
-              resp[d.date].abs_profit += d.abs_profit;
-              resp[d.date].fiat_value += d.fiat_value;
-              resp[d.date].trade_count += d.trade_count;
+              existing.abs_profit += d.abs_profit;
+              existing.fiat_value += d.fiat_value;
+              existing.trade_count += d.trade_count;
             }
           });
         }
@@ -179,12 +199,15 @@ export const useBotStore = defineStore('ftbot-wrapper', {
       Object.entries(state.botStores).forEach(([, botStore]) => {
         if (botStore.isSelected) {
           botStore.monthlyStats?.data?.forEach((d) => {
-            if (!resp[d.date]) {
+            const existing = resp[d.date];
+            if (!existing) {
               resp[d.date] = { ...d };
             } else {
-              resp[d.date].abs_profit += d.abs_profit;
-              resp[d.date].fiat_value += d.fiat_value;
-              resp[d.date].trade_count += d.trade_count;
+              existing.abs_profit += d.abs_profit;
+              existing.fiat_value += d.fiat_value;
+              existing.starting_balance += d.starting_balance;
+              existing.rel_profit += d.rel_profit;
+              existing.trade_count += d.trade_count;
             }
           });
         }
@@ -222,18 +245,23 @@ export const useBotStore = defineStore('ftbot-wrapper', {
       this.availableBots = { ...this.availableBots };
     },
     updateBot(botId: string, bot: Partial<BotDescriptor>) {
-      if (!Object.keys(this.availableBots).includes(botId)) {
+      const botInstance = this.botStores[botId];
+      if (!botInstance) {
         // TODO: handle error!
         console.error('Bot not found');
         return;
       }
-      this.botStores[botId].updateBot(bot);
-      Object.assign(this.availableBots[botId], bot);
+      botInstance.updateBot(bot);
+      const availableBots = this.availableBots[botId];
+      if (!availableBots) return;
+      Object.assign(availableBots, bot);
     },
     removeBot(botId: string) {
       if (Object.keys(this.availableBots).includes(botId)) {
-        this.botStores[botId].logout();
-        this.botStores[botId].$dispose();
+        const bot = this.botStores[botId];
+        if (!bot) return;
+        bot.logout();
+        bot.$dispose();
 
         delete this.botStores[botId];
         delete this.availableBots[botId];
@@ -254,7 +282,10 @@ export const useBotStore = defineStore('ftbot-wrapper', {
         if (selBotId) {
           selBot = Object.keys(this.availableBots).find((x) => x === selBotId);
         }
-        this.selectBot(this.availableBots[selBot || firstBot].botId);
+        if (!selBot) return;
+        const bot = this.availableBots[selBot];
+        if (!bot) return;
+        this.selectBot(bot.botId);
       }
     },
     setGlobalAutoRefresh(value: boolean) {
@@ -364,17 +395,25 @@ export const useBotStore = defineStore('ftbot-wrapper', {
       });
       await Promise.all(updates);
     },
-    async forceSellMulti(forcesellPayload: MultiForcesellPayload) {
-      return this.botStores[forcesellPayload.botId].forceexit(forcesellPayload);
+    async forceSellMulti(forcesellPayload: MultiForceExitPayload) {
+      const bot = this.botStores[forcesellPayload.botId];
+      if (!bot) return;
+      return bot.forceexit(forcesellPayload);
     },
     async deleteTradeMulti(deletePayload: MultiDeletePayload) {
-      return this.botStores[deletePayload.botId].deleteTrade(deletePayload.tradeid);
+      const bot = this.botStores[deletePayload.botId];
+      if (!bot) return;
+      return bot.deleteTrade(deletePayload.tradeid);
     },
     async cancelOpenOrderMulti(deletePayload: MultiCancelOpenOrderPayload) {
-      return this.botStores[deletePayload.botId].cancelOpenOrder(deletePayload.tradeid);
+      const bot = this.botStores[deletePayload.botId];
+      if (!bot) return;
+      return bot.cancelOpenOrder(deletePayload.tradeid);
     },
     async reloadTradeMulti(deletePayload: MultiReloadTradePayload) {
-      return this.botStores[deletePayload.botId].reloadTrade(deletePayload.tradeid);
+      const bot = this.botStores[deletePayload.botId];
+      if (!bot) return;
+      return bot.reloadTrade(deletePayload.tradeid);
     },
     async allGetTimeSummary(period: TimeSummaryOptions, payload?: TimeSummaryPayload) {
       const updates: Promise<TimeSummaryReturnValue>[] = [];
@@ -385,6 +424,20 @@ export const useBotStore = defineStore('ftbot-wrapper', {
         }
       });
       await Promise.all(updates);
+    },
+    toggleBotsByState(state: 'dry' | 'live' | 'all') {
+      for (const bot of Object.values(this.botStores)) {
+        if (state === 'all') {
+          bot.isSelected = true;
+        } else if (
+          bot.isBotOnline &&
+          ((bot.botState.dry_run && state === 'dry') || (!bot.botState.dry_run && state === 'live'))
+        ) {
+          bot.isSelected = true;
+        } else {
+          bot.isSelected = false;
+        }
+      }
     },
   },
 });

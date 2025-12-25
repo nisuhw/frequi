@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import Favico from 'favico.js';
 
-import { OpenTradeVizOptions, useSettingsStore } from '@/stores/settings';
-import { useLayoutStore } from '@/stores/layout';
-import { useBotStore } from '@/stores/ftbotwrapper';
 import { useRoute } from 'vue-router';
 import Menu from 'primevue/menu';
 import type { MenuItem } from 'primevue/menuitem';
@@ -141,7 +138,9 @@ const navItems = ref([
   {
     label: 'Download Data',
     to: '/download_data',
-    visible: computed(() => botStore.isWebserverMode && botStore.activeBot.botApiVersion >= 2.41),
+    visible: computed(
+      () => botStore.isWebserverMode && botStore.activeBot.botFeatures.downloadDataView,
+    ),
     icon: 'i-mdi-download',
   },
   {
@@ -150,7 +149,8 @@ const navItems = ref([
     icon: 'i-mdi-format-list-numbered-rtl',
     visible: computed(
       () =>
-        (botStore.activeBot?.isWebserverMode ?? false) && botStore.activeBot.botApiVersion >= 2.3,
+        (botStore.activeBot?.isWebserverMode ?? false) &&
+        botStore.activeBot.botFeatures.pairlistConfig,
     ),
   },
 ]);

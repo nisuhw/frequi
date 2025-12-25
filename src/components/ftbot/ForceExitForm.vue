@@ -1,19 +1,12 @@
 <script setup lang="ts">
-import { useBotStore } from '@/stores/ftbotwrapper';
-import type { ForceSellPayload, Trade } from '@/types';
+import type { ForceExitPayload, Trade } from '@/types';
 import { ref, computed } from 'vue';
 import { refDebounced } from '@vueuse/core';
 
-const props = defineProps({
-  trade: {
-    type: Object as () => Trade,
-    required: true,
-  },
-  stakeCurrencyDecimals: {
-    type: Number,
-    required: true,
-  },
-});
+const props = defineProps<{
+  trade: Trade;
+  stakeCurrencyDecimals: number;
+}>();
 
 const model = defineModel<boolean>();
 
@@ -21,6 +14,7 @@ const botStore = useBotStore();
 
 const form = ref<HTMLFormElement>();
 const amount = ref<number | undefined>(undefined);
+const price = ref<number | undefined>(undefined);
 const ordertype = ref('limit');
 
 const checkFormValidity = () => {
@@ -35,13 +29,16 @@ async function handleSubmit() {
     return;
   }
   // call forceentry
-  const payload: ForceSellPayload = { tradeid: String(props.trade.trade_id) };
+  const payload: ForceExitPayload = { tradeid: String(props.trade.trade_id) };
 
   if (ordertype.value) {
     payload.ordertype = ordertype.value;
   }
   if (amount.value) {
     payload.amount = amount.value;
+  }
+  if (price.value && botStore.activeBot.botFeatures.forceExitWithPrice) {
+    payload.price = price.value;
   }
   await nextTick();
   botStore.activeBot.forceexit(payload);
@@ -103,12 +100,37 @@ const orderTypeOptions = [
             :min="0"
             :max="trade.amount"
             :use-grouping="false"
-            :step="0.000001"
+            :step="trade.amount_precision ?? 0.000001"
             :max-fraction-digits="8"
             class="w-full"
             show-buttons
           />
-          <Slider v-model="amount" :min="0" :max="trade.amount" :step="0.000001" class="w-full" />
+          <Slider
+            v-model="amount"
+            :min="0"
+            :max="trade.amount"
+            :step="trade.amount_precision ?? 0.000001"
+            class="w-full"
+          />
+        </div>
+      </div>
+      <div v-if="botStore.activeBot.botFeatures.forceExitWithPrice">
+        <label for="price-input" class="block font-medium mb-1">
+          Price
+          <span class="text-sm italic ml-1">Only available with limit orders</span>
+        </label>
+        <div class="space-y-2">
+          <InputNumber
+            id="price-input"
+            v-model="price"
+            :disabled="ordertype !== 'limit'"
+            :min="0"
+            :use-grouping="false"
+            :step="trade.price_precision ?? 0.000001"
+            :max-fraction-digits="8"
+            class="w-full"
+            show-buttons
+          />
         </div>
       </div>
 

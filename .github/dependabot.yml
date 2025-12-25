@@ -5,19 +5,35 @@ updates:
     - "/"
     - "/.devcontainer/"
     - "/docker/"
+  cooldown:
+    default-days: 7
+    exclude:
+      - "vscode/devcontainers/typescript-node"
   schedule:
-    interval: "daily"
-    time: "03:00"
-    timezone: "Etc/UTC"
+    interval: "cron"
+    # Daily at 2 AM
+    cronjob: "0 2 * * *"
   open-pull-requests-limit: 10
+
+- package-ecosystem: devcontainers
+  directory: "/"
+  cooldown:
+    default-days: 7
+  schedule:
+    interval: "cron"
+    # Daily at 2 AM
+    cronjob: "0 2 * * *"
+  open-pull-requests-limit: 10
+
 
 - package-ecosystem: npm
   directory: "/"
+  cooldown:
+    default-days: 7
   schedule:
-    interval: "weekly"
-    day: "wednesday"
-    time: "03:00"
-    timezone: "Etc/UTC"
+    interval: "cron"
+    # Wednesday
+    cronjob: "0 2 * * 3"
   open-pull-requests-limit: 20
   target-branch: main
   groups:
@@ -60,10 +76,15 @@ updates:
 
 - package-ecosystem: "github-actions"
   directory: "/"
+  cooldown:
+    default-days: 7
   schedule:
-    interval: "weekly"
-    day: "thursday"
-    time: "03:00"
-    timezone: "Etc/UTC"
+    interval: "cron"
+    # Thursday
+    cronjob: "0 2 * * 4"
   open-pull-requests-limit: 10
   target-branch: main
+  groups:
+    docker:
+      patterns:
+        - "docker/*"

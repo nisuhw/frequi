@@ -60,10 +60,11 @@ const props = defineProps<{
   useUTC: boolean;
   plotConfig: PlotConfig;
   theme: 'dark' | 'light';
-  sliderPosition: ChartSliderPosition | undefined;
+  sliderPosition?: ChartSliderPosition;
   colorUp: string;
   colorDown: string;
   labelSide: 'left' | 'right';
+  startCandleCount: number;
 }>();
 
 const isLabelLeft = computed(() => props.labelSide === 'left');
@@ -72,6 +73,8 @@ const MARGINLEFT = isLabelLeft.value ? '5.5%' : '1%';
 const MARGINRIGHT = isLabelLeft.value ? '1%' : '5.5%';
 const NAMEGAP = 55;
 const SUBPLOTHEIGHT = 8; // Value in %
+// minimal helpers for debugging
+const showAxisLine = false;
 
 // Candle Colors
 const upColor = props.colorUp;
@@ -157,7 +160,8 @@ function updateChart(initial = false) {
   if (Array.isArray(chartOptions.value?.dataZoom)) {
     // Only set zoom once ...
     if (initial) {
-      const startingZoom = (1 - 250 / props.dataset.length) * 100;
+      // Add 2 candles to the initial zoom to allow for a "scroll past" effect
+      const startingZoom = (1 - (props.startCandleCount + 2) / props.dataset.length) * 100;
       chartOptions.value.dataZoom.forEach((el, i) => {
         if (chartOptions.value && chartOptions.value.dataZoom) {
           chartOptions.value.dataZoom[i].start = startingZoom;
@@ -178,13 +182,19 @@ function updateChart(initial = false) {
     : props.dataset.data.slice();
 
   diffCols.value.forEach(([colFrom, colTo]) => {
-    // Enhance dataset with diff columns for area plots
-    dataset = calculateDiff(columns, dataset, colFrom, colTo);
+    if (colFrom && colTo) {
+      // Enhance dataset with diff columns for area plots
+      dataset = calculateDiff(columns, dataset, colFrom, colTo);
+    }
   });
   // Add new rows to end to allow slight "scroll past"
-  const newArray = Array(dataset.length > 0 ? dataset[dataset.length - 2].length : 0);
-  newArray[colDate] = dataset[dataset.length - 1][colDate] + props.dataset.timeframe_ms * 3;
-  dataset.push(newArray);
+  const scrollPastLength = 5;
+  const lastColDate = dataset[dataset.length - 1]?.[colDate];
+  if (lastColDate) {
+    const newArray = Array(scrollPastLength);
+    newArray[colDate] = lastColDate + props.dataset.timeframe_ms * scrollPastLength;
+    dataset.push(newArray);
+  }
 
   const options: EChartsOption = {
     dataset: {
@@ -223,7 +233,6 @@ function updateChart(initial = false) {
           // open, close, low, high
           y: [colOpen, colClose, colLow, colHigh],
         },
-        ...generateMarkArea(props.dataset, props.showMarkArea),
       },
       {
         name: 'Volume',
@@ -243,6 +252,15 @@ function updateChart(initial = false) {
   };
 
   if (Array.isArray(options.series)) {
+    const areaSeries = generateMarkAreaSeries(
+      props.dataset,
+      props.showMarkArea,
+      props.plotConfig.options?.markAreaZIndex,
+    );
+
+    if (areaSeries) {
+      options.series.push(areaSeries);
+    }
     const signalConfigs = [
       {
         colData: colEntryData,
@@ -283,36 +301,44 @@ function updateChart(initial = false) {
       },
     ];
 
-    for (const config of signalConfigs) {
-      if (config.colData >= 0) {
+    for (const signal of signalConfigs) {
+      if (signal.colData >= 0) {
         options.series.push({
-          name: config.name,
+          name: signal.name,
           type: 'scatter',
-          symbol: config.symbol,
-          symbolSize: config.symbolSize,
-          symbolRotate: config.symbolRotate ?? 0,
+          symbol: signal.symbol,
+          symbolSize: signal.symbolSize,
+          symbolRotate: signal.symbolRotate ?? 0,
           xAxisIndex: 0,
           yAxisIndex: 0,
           itemStyle: {
-            color: config.color,
+            color: signal.color,
           },
           tooltip: {
             valueFormatter: (value) => {
               if (Array.isArray(value)) {
-                // Show both value and tag
-                return value.length > 0 && value[0]
-                  ? `${config.tooltipPrefix} ${value[0]} ${value[1] ? `(${value[1]})` : ''}`
-                  : '';
+                if (value.length > 0 && value[0]) {
+                  // If tag column number get's too high, we get the full list as second argument (for no good reason)
+                  const tag = Array.isArray(value[1])
+                    ? value[1][signal.colTooltip]?.toString()
+                    : value[1]?.toString();
+                  const tagShort = tag.substring(0, 100);
+
+                  // Show both value and tag
+                  return `${signal.tooltipPrefix} ${value[0]} ${tagShort ? `(${tagShort})` : ''}`;
+                }
+                // fall back to empty output if tag ain't set.
+                return '';
               }
               // Fallback for single value
-              return value ? `${config.tooltipPrefix} ${value}` : '';
+              return value ? `${signal.tooltipPrefix} ${value}` : '';
             },
           },
           encode: {
             x: colDate,
-            y: config.colData,
+            y: signal.colData,
             tooltip:
-              config.colTooltip >= 0 ? [config.colData, config.colTooltip] : [config.colData],
+              signal.colTooltip >= 0 ? [signal.colData, signal.colTooltip] : [signal.colData],
           },
         });
       }
@@ -342,7 +368,10 @@ function updateChart(initial = false) {
             };
             const areaSeries = generateAreaCandleSeries(colDate, fillCol, key, fillValue, 0);
 
-            chartOptions.value.series[chartOptions.value.series.length - 1]['stack'] = key;
+            const currentSeries = chartOptions.value.series[chartOptions.value.series.length - 1];
+            if (currentSeries) {
+              currentSeries['stack'] = key;
+            }
             chartOptions.value.series.push(areaSeries);
           }
           chartOptions.value?.series.splice(chartOptions.value?.series.length - 1, 0);
@@ -373,8 +402,9 @@ function updateChart(initial = false) {
           axisLabel: {
             show: true,
             hideOverlap: true,
+            overflow: 'truncate',
           },
-          axisLine: { show: false },
+          axisLine: { show: showAxisLine },
           axisTick: { show: false },
           splitLine: { show: false },
         });
@@ -430,8 +460,10 @@ function updateChart(initial = false) {
                 fillValue,
                 plotIndex,
               );
-
-              chartOptions.value.series[chartOptions.value.series.length - 1]['stack'] = sk;
+              const currentSeries = chartOptions.value.series[chartOptions.value.series.length - 1];
+              if (currentSeries) {
+                currentSeries['stack'] = sk;
+              }
               chartOptions.value.series.push(areaSeries);
             }
             chartOptions.value?.series.splice(chartOptions.value?.series.length - 1, 0);
@@ -452,8 +484,12 @@ function updateChart(initial = false) {
   // }
   if (Array.isArray(chartOptions.value.grid)) {
     // Last subplot is bottom
-    chartOptions.value.grid[chartOptions.value.grid.length - 1].bottom = '50px';
-    delete chartOptions.value.grid[chartOptions.value.grid.length - 1].top;
+    const localGrid = chartOptions.value.grid[chartOptions.value.grid.length - 1];
+    if (localGrid) {
+      // Last subplot is bottom
+      localGrid.bottom = '50px';
+      delete localGrid.top;
+    }
   }
 
   const nameTrades = 'Trades';
@@ -496,6 +532,7 @@ function initializeChartOptions() {
       // Initial legend, further entries are pushed to the below list
       data: ['Candles', 'Volume', 'Entry', 'Exit'],
       right: '1%',
+      top: 0,
       type: 'scroll',
       pageTextStyle: {
         color: props.theme === 'dark' ? '#dedede' : '#333',
@@ -526,7 +563,7 @@ function initializeChartOptions() {
         // and on the left if hovering on the right.
         const obj = { top: 60 };
         const mouseIsLeft = pos[0] < size.viewSize[0] / 2;
-        obj[['left', 'right'][+mouseIsLeft]] = mouseIsLeft ? 5 : 60;
+        obj[['left', 'right'][+mouseIsLeft]!] = mouseIsLeft ? 5 : 60;
         return obj;
       },
     },
@@ -570,10 +607,18 @@ function initializeChartOptions() {
       {
         scale: true,
         max: (value) => {
-          return value.max + (value.max - value.min) * 0.02;
+          return formatDecimal(value.max + (value.max - value.min) * 0.02);
         },
         min: (value) => {
-          return value.min - (value.max - value.min) * 0.04;
+          return formatDecimal(value.min - (value.max - value.min) * 0.04);
+        },
+        name: ' ', // Necessary to avoid layout shift
+        nameLocation: 'middle',
+        nameGap: NAMEGAP,
+        axisLine: { show: showAxisLine },
+        axisLabel: {
+          hideOverlap: true,
+          overflow: 'truncate',
         },
         position: props.labelSide,
       },
@@ -586,7 +631,7 @@ function initializeChartOptions() {
         position: props.labelSide,
         nameGap: NAMEGAP,
         axisLabel: { show: false },
-        axisLine: { show: false },
+        axisLine: { show: showAxisLine },
         axisTick: { show: false },
         splitLine: { show: false },
       },

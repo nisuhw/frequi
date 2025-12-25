@@ -2,10 +2,13 @@
 import type { ChartTypeString, IndicatorConfig } from '@/types';
 import { ChartType } from '@/types';
 
-const props = defineProps({
-  modelValue: { required: true, type: Object as () => Record<string, IndicatorConfig> },
-  columns: { required: true, type: Array as () => string[] },
-});
+const props = withDefaults(
+  defineProps<{
+    modelValue: Record<string, IndicatorConfig>;
+    columns: string[];
+  }>(),
+  {},
+);
 
 const emit = defineEmits<{ 'update:modelValue': [value: IndicatorConfig] }>();
 
@@ -60,10 +63,14 @@ function emitIndicator() {
 watch(
   () => props.modelValue,
   () => {
-    [selAvailableIndicator.value] = Object.keys(props.modelValue);
+    const [firstIndicator] = Object.keys(props.modelValue);
+    if (firstIndicator) {
+      selAvailableIndicator.value = firstIndicator;
+    }
     cancelled.value = false;
     if (selAvailableIndicator.value && props.modelValue) {
       const xx = props.modelValue[selAvailableIndicator.value];
+      if (!xx) return;
       selColor.value = xx.color || randomColor();
       graphType.value = xx.type || ChartType.line;
       fillTo.value = xx.fill_to || '';

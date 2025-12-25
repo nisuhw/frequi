@@ -1,65 +1,69 @@
 import type {
-  BotState,
-  Trade,
-  PlotConfig,
-  StrategyResult,
-  BalanceInterface,
-  TimeSummaryReturnValue,
-  LockResponse,
-  ProfitInterface,
-  BacktestResult,
-  LogLine,
-  SysInfoResponse,
-  BacktestHistoryEntry,
-  TimeSummaryPayload,
-  BlacklistResponse,
-  WhitelistResponse,
-  StrategyListResult,
+  AllProfitStats,
   AvailablePairPayload,
   AvailablePairResult,
-  PairHistoryPayload,
-  PairCandlePayload,
-  StatusResponse,
-  ForceSellPayload,
-  DeleteTradeResponse,
-  BacktestStatus,
-  BacktestPayload,
-  BlacklistPayload,
-  ForceEnterPayload,
-  TradeResponse,
-  ClosedTrade,
-  BotDescriptor,
-  BgTaskStarted,
   BackgroundTaskStatus,
+  BacktestHistoryEntry,
+  BacktestMarketChange,
+  BacktestMetadataPatch,
+  BacktestMetadataWithStrategyName,
+  BacktestPayload,
+  BacktestResult,
+  BacktestResultInMemory,
+  BacktestResultUpdate,
+  BacktestStatus,
+  BalanceInterface,
+  BgTaskStarted,
+  BlacklistPayload,
+  BlacklistResponse,
+  BotDescriptor,
+  BotFeatures,
+  BotState,
+  ClosedTrade,
+  DeleteTradeResponse,
+  DownloadDataPayload,
+  EntryStats,
   Exchange,
   ExchangeListResult,
+  ExitStats,
+  ForceEnterPayload,
+  ForceExitPayload,
   FreqAIModelListResult,
+  HyperoptLossListResponse,
+  HyperoptLossObj,
+  LockResponse,
+  LogLine,
+  Markets,
+  MarketsPayload,
+  MixTagStats,
+  PairCandlePayload,
+  PairHistory,
+  PairHistoryPayload,
+  PairIntervalTuple,
   PairlistEvalResponse,
   PairlistsPayload,
   PairlistsResponse,
-  BacktestResultInMemory,
-  BacktestMetadataWithStrategyName,
-  BacktestMetadataPatch,
-  BacktestResultUpdate,
   PerformanceEntry,
-  MixTagStats,
-  ExitStats,
-  EntryStats,
-  PairIntervalTuple,
-  PairHistory,
-  HyperoptLossListResponse,
-  HyperoptLossObj,
-  DownloadDataPayload,
-  BacktestMarketChange,
-  Markets,
-  MarketsPayload,
+  PlotConfig,
+  ProfitStats,
+  StatusResponse,
+  StrategyListResult,
+  StrategyResult,
+  SysInfoResponse,
+  TimeSummaryPayload,
+  TimeSummaryReturnValue,
+  Trade,
+  TradeResponse,
+  WhitelistResponse,
 } from '@/types';
 import { BacktestSteps, LoadingStatus, RunModes, TimeSummaryOptions } from '@/types';
-import type { AxiosResponse } from 'axios';
-import axios from 'axios';
-import { useWebSocket } from '@vueuse/core';
 import type { FTWsMessage } from '@/types/wsMessageTypes';
 import { FtWsMessageTypes } from '@/types/wsMessageTypes';
+import { useWebSocket } from '@vueuse/core';
+import type { AxiosResponse } from 'axios';
+import axios from 'axios';
+
+import { evaluateFeatures } from '@/utils/features';
 
 export function createBotSubStore(botId: string, botName: string) {
   const loginInfo = useLoginInfo(botId);
@@ -90,7 +94,7 @@ export function createBotSubStore(botId: string, botName: string) {
         mixTagStats: [] as MixTagStats[],
         whitelist: [] as string[],
         blacklist: [] as string[],
-        profit: {} as ProfitInterface,
+        profitAll: {} as AllProfitStats,
         botState: {} as BotState,
         balance: {} as BalanceInterface,
         dailyStats: {} as TimeSummaryReturnValue,
@@ -99,7 +103,7 @@ export function createBotSubStore(botId: string, botName: string) {
         pairlistMethods: [] as string[],
         detailTradeId: null as number | null,
         selectedPair: '',
-        plotPair: '',
+        plotMultiPairs: [] as string[],
         // TODO: type me
         candleData: {},
         candleDataStatus: LoadingStatus.not_loaded,
@@ -107,7 +111,6 @@ export function createBotSubStore(botId: string, botName: string) {
         history: {},
         historyStatus: LoadingStatus.not_loaded,
         historyTakesLonger: false,
-        strategyPlotConfig: undefined as PlotConfig | undefined,
         strategyList: [] as string[],
         freqaiModelList: [] as string[],
         hyperoptLossList: [] as HyperoptLossObj[],
@@ -130,14 +133,17 @@ export function createBotSubStore(botId: string, botName: string) {
     getters: {
       version: (state) => state.botState?.version || state.versionState,
       botApiVersion: (state) => state.botState?.api_version || 1.0,
+      botFeatures(): BotFeatures {
+        return evaluateFeatures(this.botState, this.botApiVersion);
+      },
       stakeCurrency: (state) => state.botState?.stake_currency || '',
       stakeCurrencyDecimals: (state) => state.botState?.stake_currency_decimals || 3,
       canRunBacktest: (state) => state.botState?.runmode === RunModes.WEBSERVER,
       isWebserverMode: (state) => state.botState?.runmode === RunModes.WEBSERVER,
       selectedBacktestResult: (state) =>
-        state.backtestHistory[state.selectedBacktestResultKey]?.strategy || {},
+        state.backtestHistory[state.selectedBacktestResultKey]?.strategy,
       selectedBacktestMetadata: (state) =>
-        state.backtestHistory[state.selectedBacktestResultKey]?.metadata || {},
+        state.backtestHistory[state.selectedBacktestResultKey]?.metadata,
       shortAllowed: (state) => state.botState?.short_allowed || false,
       openTradeCount: (state) => state.openTrades.length,
       isTrading: (state) =>
@@ -171,9 +177,12 @@ export function createBotSubStore(botId: string, botName: string) {
         }
         return false;
       },
+      uiBotName: (state) => botName || state.botState?.bot_name || 'freqtrade',
       botName: (state) => state.botState?.bot_name || 'freqtrade',
+      botId: () => botId,
       allTrades: (state) => [...state.openTrades, ...state.trades] as Trade[],
       activeLocks: (state) => state.currentLocks?.locks || [],
+      profit: (state): ProfitStats => state.profitAll.all,
     },
     actions: {
       botAdded() {
@@ -306,7 +315,7 @@ export function createBotSubStore(botId: string, botName: string) {
             Array.isArray(this.openTrades) &&
             Array.isArray(data) &&
             (this.openTrades.length !== data.length ||
-              !this.openTrades.every((val, index) => val.trade_id === data[index].trade_id))
+              !this.openTrades.every((val, index) => val.trade_id === data[index]?.trade_id))
           ) {
             // Open trades changed, so we should refresh now.
             this.refreshRequired = true;
@@ -318,9 +327,7 @@ export function createBotSubStore(botId: string, botName: string) {
               botId,
               botName,
               botTradeId: `${botId}__${t.trade_id}`,
-              profit_ratio: t.profit_ratio ?? -1,
             }));
-            // TODO Don't force-patch profit_ratio but handle null values properly
             this.openTrades = openTrades;
             if (this.selectedPair === '') {
               this.selectedPair = openTrades[0]?.pair || '';
@@ -356,7 +363,7 @@ export function createBotSubStore(botId: string, botName: string) {
           try {
             let result: PairHistory | null = null;
             const settingsStore = useSettingsStore();
-            if (this.botApiVersion >= 2.35 && settingsStore.useReducedPairCalls) {
+            if (this.botFeatures.reducedPairCalls && settingsStore.useReducedPairCalls) {
               // Modern approach, allowing filtering of columns
               const { data } = await api.post<PairCandlePayload, AxiosResponse<PairHistory>>(
                 '/pair_candles',
@@ -402,7 +409,7 @@ export function createBotSubStore(botId: string, botName: string) {
             let result: PairHistory | null = null;
             const loadingTimer = setTimeout(() => (this.historyTakesLonger = true), 10000);
             const timeout = 2 * 60 * 1000; // in MS
-            if (this.botApiVersion >= 2.35 && settingsStore.useReducedPairCalls) {
+            if (this.botFeatures.reducedPairCalls && settingsStore.useReducedPairCalls) {
               // Modern approach, allowing filtering of columns
               const { data } = await api.post<PairHistoryPayload, AxiosResponse<PairHistory>>(
                 '/pair_history',
@@ -449,7 +456,7 @@ export function createBotSubStore(botId: string, botName: string) {
           reject(error);
         });
       },
-      async getStrategyPlotConfig() {
+      async getStrategyPlotConfig(): Promise<PlotConfig | undefined> {
         try {
           const payload = {};
           if (this.isWebserverMode) {
@@ -459,16 +466,15 @@ export function createBotSubStore(botId: string, botName: string) {
             payload['strategy'] = this.strategy.strategy;
           }
 
-          const { data: plotConfig } = await api.get<PlotConfig>('/plot_config', {
+          const { data: plotConfig } = await api.get<Partial<PlotConfig>>('/plot_config', {
             params: { ...payload },
           });
-          if (plotConfig.subplots === null) {
-            // Subplots should not be null but an empty object
-            // TODO: Remove this fix when fix in freqtrade is populated further.
-            plotConfig.subplots = {};
-          }
-          this.strategyPlotConfig = plotConfig;
-          return Promise.resolve();
+          const finalPlotConfig: PlotConfig = {
+            subplots: {},
+            main_plot: {},
+            ...plotConfig,
+          };
+          return Promise.resolve(finalPlotConfig);
         } catch (data) {
           console.error(data);
           return Promise.reject(data);
@@ -619,8 +625,14 @@ export function createBotSubStore(botId: string, botName: string) {
       },
       async getProfit() {
         try {
-          const { data } = await api.get('/profit');
-          this.profit = data;
+          if (this.botFeatures.hasProfitAll) {
+            const { data } = await api.get<AllProfitStats>('/profit_all');
+            this.profitAll = data;
+            return Promise.resolve(data);
+          }
+          // Fallback to old profit endpoint
+          const { data } = await api.get<ProfitStats>('/profit');
+          this.profitAll['all'] = data;
           return Promise.resolve(data);
         } catch (error) {
           return Promise.reject(error);
@@ -849,9 +861,9 @@ export function createBotSubStore(botId: string, botName: string) {
           return Promise.reject(error);
         }
       },
-      async forceexit(payload: ForceSellPayload) {
+      async forceexit(payload: ForceExitPayload) {
         try {
-          const res = await api.post<ForceSellPayload, AxiosResponse<StatusResponse>>(
+          const res = await api.post<ForceExitPayload, AxiosResponse<StatusResponse>>(
             '/forcesell',
             payload,
           );
@@ -902,7 +914,7 @@ export function createBotSubStore(botId: string, botName: string) {
               const { errors } = result.data;
               Object.keys(errors).forEach((pair) => {
                 showAlert(
-                  `Error while adding pair ${pair} to Blacklist: ${errors[pair].error_msg}`,
+                  `Error while adding pair ${pair} to Blacklist: ${errors[pair]?.error_msg}`,
                   'error',
                 );
               });
@@ -948,7 +960,7 @@ export function createBotSubStore(botId: string, botName: string) {
               const { errors } = result.data;
               Object.keys(errors).forEach((pair) => {
                 showAlert(
-                  `Error while removing pair ${pair} from Blacklist: ${errors[pair].error_msg}`,
+                  `Error while removing pair ${pair} from Blacklist: ${errors[pair]?.error_msg}`,
                   'error',
                 );
               });
@@ -1026,8 +1038,13 @@ export function createBotSubStore(botId: string, botName: string) {
       },
       updateBacktestResult(backtestResult: BacktestResult) {
         Object.entries(backtestResult.strategy).forEach(([key, strat]) => {
+          const existingMetadata = backtestResult.metadata[key];
+          if (!existingMetadata) {
+            console.warn(`No metadata found for strategy ${key}`);
+            return;
+          }
           const metadata: BacktestMetadataWithStrategyName = {
-            ...(backtestResult.metadata[key] ?? {}),
+            ...existingMetadata,
             strategyName: key,
             notes: backtestResult.metadata[key]?.notes ?? ``,
             editing: false,
@@ -1036,7 +1053,7 @@ export function createBotSubStore(botId: string, botName: string) {
 
           // Never versions will always have run_id
           const stratKey =
-            backtestResult.metadata[key].run_id ??
+            existingMetadata.run_id ??
             `${key}_${strat.total_trades}_${strat.profit_total.toFixed(3)}`;
           const btResult: BacktestResultInMemory = {
             metadata,
@@ -1067,7 +1084,7 @@ export function createBotSubStore(botId: string, botName: string) {
         }
       },
       async getBacktestMarketChange() {
-        if (!this.selectedBacktestMetadata.filename) {
+        if (!this.selectedBacktestMetadata?.filename) {
           return Promise.reject('No backtest selected');
         }
         try {
@@ -1088,8 +1105,9 @@ export function createBotSubStore(botId: string, botName: string) {
           >(`/backtest/history/${payload.filename}`, payload);
           console.log(data);
           data.forEach((entry) => {
-            if (entry.run_id in this.backtestHistory) {
-              this.backtestHistory[entry.run_id].metadata.notes = entry.notes;
+            const existingEntry = this.backtestHistory[entry.run_id];
+            if (existingEntry) {
+              existingEntry.metadata.notes = entry.notes;
               console.log('updating ...');
             }
           });
@@ -1108,7 +1126,7 @@ export function createBotSubStore(botId: string, botName: string) {
           const keys = Object.keys(this.backtestHistory);
           const index = keys.findIndex((k) => k !== key);
           if (index !== -1) {
-            this.selectedBacktestResultKey = keys[index];
+            this.selectedBacktestResultKey = keys[index]!;
           }
         }
         delete this.backtestHistory[key];
@@ -1141,7 +1159,7 @@ export function createBotSubStore(botId: string, botName: string) {
           case FtWsMessageTypes.newCandle: {
             const [pair, timeframe] = msg.data;
             // TODO: check for active bot ...
-            if (pair === this.plotPair) {
+            if (this.plotMultiPairs.length > 0 && this.plotMultiPairs.includes(pair)) {
               // Reload pair candles
               const plotStore = usePlotConfigStore();
               this.getPairCandles({ pair, timeframe, columns: plotStore.usedColumns });
@@ -1159,7 +1177,7 @@ export function createBotSubStore(botId: string, botName: string) {
         if (
           this.websocketStarted === true ||
           this.botStatusAvailable === false ||
-          this.botApiVersion < 2.2 ||
+          !this.botFeatures.websocketConnection ||
           this.isWebserverMode === true
         ) {
           return;
@@ -1195,7 +1213,7 @@ export function createBotSubStore(botId: string, botName: string) {
                   FtWsMessageTypes.exitCancel,
                   /*'new_candle' /*'analyzed_df'*/
                 ];
-                if (this.botApiVersion >= 2.21) {
+                if (this.botFeatures.websocketNewCandle) {
                   subscriptions.push(FtWsMessageTypes.newCandle);
                 }
 

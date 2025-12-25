@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useBotStore } from '@/stores/ftbotwrapper';
 import type { BalanceValues } from '@/types';
 
 const botStore = useBotStore();
@@ -11,7 +10,7 @@ const smallBalance = computed<number>(() => {
 });
 
 const canUseBotBalance = computed(() => {
-  return botStore.activeBot.botApiVersion >= 2.26;
+  return botStore.activeBot.botFeatures.hasBotBalance;
 });
 
 const balanceCurrencies = computed(() => {

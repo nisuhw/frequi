@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type { BacktestResultInMemory } from '@/types';
 
-const props = defineProps({
-  backtestResults: { required: true, type: Object as () => Record<string, BacktestResultInMemory> },
-});
+const props = withDefaults(
+  defineProps<{
+    backtestResults: Record<string, BacktestResultInMemory>;
+  }>(),
+  {},
+);
 
 const backtestResultStats = computed(() => {
   const values = {};
@@ -42,8 +45,8 @@ const backtestResultFields = computed(() => {
             >
               <template #header>
                 <BacktestResultSelectEntry
-                  v-if="col.key && col.key in backtestResults"
-                  :backtest-result="backtestResults[col.key]"
+                  v-if="col.key && backtestResults[col.key]"
+                  :backtest-result="backtestResults[col.key]!"
                 />
                 <span v-else>{{ col.label }}</span>
               </template>

@@ -16,9 +16,6 @@ import {
 } from 'echarts/components';
 
 import type { ClosedTrade } from '@/types';
-import { useSettingsStore } from '@/stores/settings';
-
-import { useColorStore } from '@/stores/colors';
 
 use([
   BarChart,
@@ -39,10 +36,15 @@ use([
 const CHART_PROFIT = 'Profit %';
 const CHART_COLOR = '#9be0a8';
 
-const props = defineProps({
-  trades: { required: true, type: Array as () => ClosedTrade[] },
-  showTitle: { default: true, type: Boolean },
-});
+const props = withDefaults(
+  defineProps<{
+    trades: ClosedTrade[];
+    showTitle?: boolean;
+  }>(),
+  {
+    showTitle: true,
+  },
+);
 const settingsStore = useSettingsStore();
 const colorStore = useColorStore();
 const chartData = computed(() => {
@@ -52,15 +54,17 @@ const chartData = computed(() => {
     .sort((a, b) => (a.close_timestamp > b.close_timestamp ? 1 : -1));
   for (let i = 0, len = sortedTrades.length; i < len; i += 1) {
     const trade = sortedTrades[i];
-    const entry = [
-      i,
-      (trade.profit_ratio * 100).toFixed(2),
-      trade.pair,
-      trade.botName,
-      timestampms(trade.close_timestamp),
-      trade.is_short === undefined || !trade.is_short ? 'Long' : 'Short',
-    ];
-    res.push(entry);
+    if (trade) {
+      const entry = [
+        i,
+        ((trade.profit_ratio ?? 0) * 100).toFixed(2),
+        trade.pair,
+        trade.botName,
+        timestampms(trade.close_timestamp),
+        trade.is_short === undefined || !trade.is_short ? 'Long' : 'Short',
+      ];
+      res.push(entry);
+    }
   }
   return res;
 });

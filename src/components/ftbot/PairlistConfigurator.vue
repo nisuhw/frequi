@@ -33,6 +33,10 @@ useSortable(pairlistConfigsEl, pairlistStore.config.pairlists, {
   },
   onAdd: (e) => {
     const pairlist = availablePairlists.value[e.oldIndex];
+    if (!pairlist) {
+      console.error('Pairlist not found');
+      return;
+    }
     pairlistStore.addToConfig(pairlist, e.newIndex);
     // quick fix from: https://github.com/SortableJS/Sortable/issues/1515
     e.clone.replaceWith(e.item);
@@ -61,13 +65,17 @@ watch(
     selectedView.value = 'Results';
   },
 );
+
+if (pairlistStore.whitelist.length > 0) {
+  selectedView.value = 'Results';
+}
 </script>
 
 <template>
-  <div class="flex px-3 mb-3 gap-3 flex-col lg:flex-row">
+  <div class="grid grid-cols-1 lg:grid-cols-[auto_1fr_auto] px-3 mb-3 gap-3 w-full">
     <ul
       ref="availablePairlistsEl"
-      class="divide-y border-x border-surface-500 rounded-sm border-y divide-solid divide-surface-500"
+      class="divide-y border-x border-surface-500 rounded-sm border-y divide-solid divide-surface-500 min-w-72"
     >
       <li
         v-for="pairlist in availablePairlists"
@@ -95,7 +103,7 @@ watch(
         </Button>
       </li>
     </ul>
-    <div class="flex flex-col grow">
+    <div class="flex flex-col">
       <PairlistConfigActions />
       <div class="border rounded-sm border-surface-500 p-2 mb-2">
         <div class="flex items-center gap-2 my-2">
@@ -126,19 +134,19 @@ watch(
       </Message>
       <div
         ref="pairlistConfigsEl"
-        class="flex flex-col grow relative border rounded-sm border-surface-500 p-1 gap-2"
+        class="flex flex-col grow relative border rounded-sm border-surface-500 p-1 gap-2 min-h-32"
         :class="{ empty: configEmpty }"
       >
         <PairlistConfigItem
           v-for="(pairlist, i) in pairlistStore.config.pairlists"
           :key="pairlist.id"
-          v-model="pairlistStore.config.pairlists[i]"
+          v-model="pairlistStore.config.pairlists[i]!"
           :index="i"
           @remove="pairlistStore.removeFromConfig"
         />
       </div>
     </div>
-    <div class="flex flex-col w-full lg:w-3/12">
+    <div class="flex flex-col w-full min-w-72">
       <SelectButton
         v-model="selectedView"
         class="mb-2"
@@ -152,7 +160,6 @@ watch(
         ]"
         option-disabled="disabled"
       >
-        <!-- TODO primevue: Fix selectButton "disabled" state-->
       </SelectButton>
       <div class="relative overflow-auto">
         <CopyableTextfield

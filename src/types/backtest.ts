@@ -1,5 +1,6 @@
 import type { Lock } from './locks';
 import type { ClosedTrade, Trade } from './trades';
+import type { MarginMode, TradingMode } from './types';
 
 export interface BacktestPayload {
   strategy: string;
@@ -25,8 +26,6 @@ export interface PairResult {
   losses: number;
   profit_mean: number;
   profit_mean_pct: number;
-  profit_sum: number;
-  profit_sum_pct: number;
   profit_total_abs: number;
   profit_total_pct: number;
   profit_total: number;
@@ -51,8 +50,6 @@ export interface ExitReasonResults {
   losses: number;
   profit_mean: number;
   profit_mean_pct: number;
-  profit_sum: number;
-  profit_sum_pct: number;
   profit_total_abs: number;
   /** Total profit as ratio */
   profit_total: number;
@@ -80,6 +77,7 @@ export interface PeriodicBreakdown {
   week: PeriodicStat[];
   month: PeriodicStat[];
   year?: PeriodicStat[];
+  weekday?: PeriodicStat[];
 }
 
 export interface StrategyBacktestResult {
@@ -128,6 +126,8 @@ export interface StrategyBacktestResult {
   timeframe_detail?: string;
   timerange: string;
   strategy_name: string;
+  freqaimodel?: string;
+  freqai_identifier?: string;
   enable_protections: boolean;
   stoploss: number;
   trailing_stop: boolean;
@@ -136,8 +136,8 @@ export interface StrategyBacktestResult {
   trailing_only_offset_is_reached: boolean;
   use_custom_stoploss: boolean;
   minimal_roi: Record<string, number>;
-  margin_mode?: 'cross' | 'isolated';
-  trading_mode?: 'spot' | 'futures';
+  margin_mode?: MarginMode;
+  trading_mode?: TradingMode;
 
   /** @deprecated - replaced by use_exit_signal 2.x */
   use_sell_signal?: boolean;
@@ -176,6 +176,7 @@ export interface StrategyBacktestResult {
   max_drawdown_abs: number;
   max_drawdown_low: number;
   max_drawdown_high: number;
+  drawdown_duration?: string;
 
   csum_min: number;
   csum_max: number;

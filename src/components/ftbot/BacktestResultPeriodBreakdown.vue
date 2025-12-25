@@ -14,6 +14,9 @@ const periodicBreakdownSelections = computed(() => {
   if (props.periodicBreakdown.year) {
     res.push({ value: 'year', text: 'Years' });
   }
+  if (props.periodicBreakdown.weekday) {
+    res.push({ value: 'weekday', text: 'Weekday' });
+  }
 
   return res;
 });
@@ -40,7 +43,7 @@ const periodicBreakdownPeriod = ref<string>('month');
     </Column>
     <Column field="profit_abs" header="Total Profit" :body="formatPrice">
       <template #body="{ data, field }">
-        {{ data[field] ? data[field].toFixed(2) : 'N/A' }}
+        {{ formatNumber(data[field], 2) }}
       </template>
     </Column>
     <Column field="profit_factor" header="Profit Factor">
@@ -57,10 +60,7 @@ const periodicBreakdownPeriod = ref<string>('month');
     </Column>
     <Column field="wins" header="Win Rate">
       <template #body="{ data }">
-        {{
-          ((data.wins / (data.wins + data.draws + (data.loses ?? data.losses))) * 100).toFixed(2) +
-          '%'
-        }}
+        {{ formatPercent(data.wins / (data.wins + data.draws + (data.loses ?? data.losses)), 2) }}
       </template>
     </Column>
   </DataTable>

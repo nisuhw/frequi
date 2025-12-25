@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { usePairlistConfigStore } from '@/stores/pairlistConfig';
 import type { Pairlist } from '@/types';
 
 const pairlistStore = usePairlistConfigStore();
@@ -27,13 +26,13 @@ function toggleVisible() {
       <div class="flex grow items-center">
         <i-mdi-reorder-horizontal
           role="button"
-          class="handle me-2 ms-2 shrink"
+          class="handle me-2 ms-2 flex-auto shrink"
           width="24"
           height="24"
         />
         <div
           role="button"
-          class="flex grow items-start flex-col user-select-none"
+          class="flex items-start flex-col user-select-none w-full"
           @click="toggleVisible"
         >
           <span class="font-bold">{{ pairlist.name }}</span>
@@ -67,7 +66,7 @@ function toggleVisible() {
         <PairlistConfigParameter
           v-for="(parameter, key) in pairlist.params"
           :key="key"
-          v-model="pairlist.params[key].value"
+          v-model="parameter.value"
           :param="parameter"
         />
       </div>

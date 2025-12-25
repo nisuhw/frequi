@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { MultiDeletePayload, MultiForcesellPayload, Trade } from '@/types';
-import { useBotStore } from '@/stores/ftbotwrapper';
+import type { MultiDeletePayload, MultiForceExitPayload, Trade } from '@/types';
+
 import { useRouter } from 'vue-router';
 
 enum ModalReasons {
@@ -103,7 +103,7 @@ function forceExitExecuter() {
     botStore.deleteTradeMulti(payload).catch((error) => console.log(error.response));
   }
   if (confirmExitValue.value === ModalReasons.forceExit) {
-    const payload: MultiForcesellPayload = {
+    const payload: MultiForceExitPayload = {
       tradeid: String(feTrade.value.trade_id),
       botId: feTrade.value.botId,
     };
@@ -218,7 +218,7 @@ watch(
           <template v-if="field === 'trade_id'">
             {{ data.trade_id }}
             {{
-              botStore.activeBot.botApiVersion > 2.0 && data.trading_mode !== 'spot'
+              botStore.activeBot.botFeatures.futures && data.trading_mode !== 'spot'
                 ? (data.trade_id ? '| ' : '') + (data.is_short ? 'Short' : 'Long')
                 : ''
             }}
@@ -231,7 +231,7 @@ watch(
               :id="index"
               :enable-force-entry="botStore.activeBot.botState.force_entry_enable"
               :trade="data as Trade"
-              :bot-api-version="botStore.activeBot.botApiVersion"
+              :bot-features="botStore.activeBot.botFeatures"
               @delete-trade="removeTradeHandler(data as Trade)"
               @force-exit="forceExitHandler"
               @force-exit-partial="forceExitPartialHandler"
@@ -247,6 +247,9 @@ watch(
           <template
             v-else-if="field === 'open_rate' || field === 'current_rate' || field === 'close_rate'"
           >
+            {{ formatPrice(data[field]) }}
+          </template>
+          <template v-else-if="field === 'amount'">
             {{ formatPrice(data[field]) }}
           </template>
           <template v-else-if="field === 'profit'">

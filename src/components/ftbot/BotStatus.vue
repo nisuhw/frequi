@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { useBotStore } from '@/stores/ftbotwrapper';
-
 const botStore = useBotStore();
 </script>
 
@@ -19,8 +17,15 @@ const botStore = useBotStore();
       </strong>
       on
       <strong>{{ botStore.activeBot.botState.exchange }}</strong> in
-      <strong>{{ botStore.activeBot.botState.trading_mode || 'spot' }}</strong> markets, with
-      Strategy <strong>{{ botStore.activeBot.botState.strategy }}</strong
+      <strong
+        >{{ botStore.activeBot.botState.trading_mode || 'spot' }}
+        {{
+          botStore.activeBot.botState.trading_mode != 'spot'
+            ? (botStore.activeBot.botState.margin_mode ?? '')
+            : ''
+        }}</strong
+      >
+      markets, with Strategy <strong>{{ botStore.activeBot.botState.strategy }}</strong
       >.
     </p>
     <p v-if="'stoploss_on_exchange' in botStore.activeBot.botState" class="mb-4">
@@ -69,7 +74,7 @@ const botStore = useBotStore();
     <p>
       <span v-if="botStore.activeBot.profit.profit_factor" class="block">
         Profit factor:
-        {{ botStore.activeBot.profit.profit_factor.toFixed(2) }}
+        {{ formatNumber(botStore.activeBot.profit.profit_factor, 2) }}
       </span>
       <span v-if="botStore.activeBot.profit.trading_volume" class="block mb-4">
         Trading volume:
@@ -82,9 +87,10 @@ const botStore = useBotStore();
         }}
       </span>
     </p>
+    <Divider />
     <BotProfit
       class="mx-1"
-      :profit="botStore.activeBot.profit"
+      :profit-all="botStore.activeBot.profitAll"
       :stake-currency="botStore.activeBot.botState.stake_currency ?? 'USDT'"
       :stake-currency-decimals="botStore.activeBot.botState.stake_currency_decimals ?? 3"
     />

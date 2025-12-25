@@ -32,9 +32,11 @@ export const useSettingsStore = defineStore('uiSettings', {
       profitDistributionBins: 20,
       confirmDialog: true,
       chartLabelSide: 'right' as 'left' | 'right',
+      chartDefaultCandleCount: 250,
       timeProfitPeriod: TimeSummaryOptions.daily,
       timeProfitPreference: TimeSummaryCols.abs_profit,
       multiPaneButtonsShowText: false,
+      multiPairSelection: false,
       backtestAdditionalMetrics: ['profit_factor', 'expectancy'] as string[],
     };
   },
@@ -53,7 +55,9 @@ export const useSettingsStore = defineStore('uiSettings', {
     async loadUIVersion() {
       if (import.meta.env.PROD) {
         try {
-          const result = await axios.get<UiVersion>('/ui_version');
+          const result = await axios.get<UiVersion>('/ui_version', {
+            withCredentials: true,
+          });
           const { version } = result.data;
           this._uiVersion = version ?? 'dev';
         } catch (error) {

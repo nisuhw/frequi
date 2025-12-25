@@ -3,14 +3,14 @@ import type { Trade } from '@/types';
 
 const colorStore = useColorStore();
 
-defineProps({
-  trade: { required: true, type: Object as () => Trade },
-  stakeCurrency: { required: true, type: String },
-});
+defineProps<{
+  trade: Trade;
+  stakeCurrency: string;
+}>();
 </script>
 
 <template>
-  <div class="text-start grid grid-cols-1 lg:grid-cols-2 gap-4 px-2">
+  <div class="text-start grid grid-cols-[repeat(auto-fit,minmax(500px,1fr))] gap-4 px-2">
     <div class="">
       <h5 class="detail-header">General</h5>
       <ValuePair description="Trade Id">{{ trade.trade_id }}</ValuePair>
@@ -26,7 +26,7 @@ defineProps({
         >{{ formatPriceCurrency(trade.max_stake_amount ?? trade.stake_amount, stakeCurrency) }}
         {{ trade.leverage && trade.leverage !== 1 ? `(${trade.leverage}x)` : '' }}</ValuePair
       >
-      <ValuePair description="Amount">{{ trade.amount }}</ValuePair>
+      <ValuePair description="Amount">{{ formatPrice(trade.amount) }}</ValuePair>
       <ValuePair description="Open Rate">{{ formatPrice(trade.open_rate) }}</ValuePair>
       <ValuePair v-if="trade.is_open && trade.current_rate" description="Current Rate">{{
         formatPrice(trade.current_rate)

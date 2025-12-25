@@ -3,6 +3,7 @@ import type { DownloadDataPayload, ExchangeSelection } from '@/types';
 import { MarginMode, TradingMode } from '@/types';
 
 const botStore = useBotStore();
+const pairlistStore = usePairlistConfigStore();
 const pairs = ref<string[]>(['BTC/USDT', 'ETH/USDT', '']);
 const timeframes = ref<string[]>(['5m', '1h']);
 
@@ -33,9 +34,22 @@ const downloadTrades = ref(false);
 
 // State to track the collapse status
 const isAdvancedOpen = ref(false);
+const candleType = ref<string[]>([]);
+const candleTypes = [
+  { text: 'Spot', value: 'spot' },
+  { text: 'Futures', value: 'futures' },
+  { text: 'Funding Rate', value: 'funding_rate' },
+  { text: 'Mark', value: 'mark' },
+  { text: 'Index', value: 'index' },
+  { text: 'Premium Index', value: 'premiumIndex' },
+];
 
 function addPairs(_pairs: string[]) {
   pairs.value.push(..._pairs);
+}
+
+function replacePairs(_pairs: string[]) {
+  pairs.value = [..._pairs];
 }
 
 async function startDownload() {
@@ -61,6 +75,9 @@ async function startDownload() {
       payload.trading_mode = exchange.value.selectedExchange.trade_mode.trading_mode;
       payload.margin_mode = exchange.value.selectedExchange.trade_mode.margin_mode;
     }
+    if (botStore.activeBot.botFeatures.downloadDataCandleTypes && candleType.value.length > 0) {
+      payload.candle_types = candleType.value;
+    }
   }
 
   await botStore.activeBot.startDataDownload(payload);
@@ -82,12 +99,7 @@ async function startDownload() {
                   <h5 class="text-start font-bold text-lg">Pairs from template</h5>
                 </div>
                 <div class="flex gap-2">
-                  <BaseStringList
-                    v-model="pairs"
-                    placeholder="Pair"
-                    size="small"
-                    class="flex-grow-1"
-                  />
+                  <BaseStringList v-model="pairs" placeholder="Pair" size="small" class="grow" />
                   <div class="flex flex-col gap-1">
                     <div class="flex flex-col gap-1">
                       <Button
@@ -100,6 +112,15 @@ async function startDownload() {
                         {{ pt.description }}
                       </Button>
                     </div>
+                    <Divider />
+                    <Button
+                      :disabled="pairlistStore.whitelist.length === 0"
+                      title="Add all pairs from Pairlist Config - requires the pairlist config to have ran first."
+                      severity="secondary"
+                      @click="replacePairs(pairlistStore.whitelist)"
+                    >
+                      Use Pairs from Pairlist Config
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -163,6 +184,20 @@ async function startDownload() {
                   <BaseCheckbox v-model="downloadTrades" class="mb-2">
                     Download Trades instead of OHLCV data
                   </BaseCheckbox>
+                  <div class="grid grid-cols md:grid-cols-2 items-center gap-2">
+                    <MultiSelect
+                      v-if="botStore.activeBot.botFeatures.downloadDataCandleTypes"
+                      v-model="candleType"
+                      :options="candleTypes"
+                      option-label="text"
+                      option-value="value"
+                      placeholder="Select Candle Types"
+                    />
+                    <small
+                      >When no candle-type is selected, freqtrade will download the necessary candle
+                      types for regular operation automatically.</small
+                    >
+                  </div>
                 </div>
                 <div
                   class="mb-2 border dark:border-surface-700 border-surface-300 rounded-md p-2 text-start"

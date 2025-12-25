@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import type { Trade } from '@/types';
 
-import { useBotStore } from '@/stores/ftbotwrapper';
-
-const props = defineProps({
-  trades: { required: true, type: Array as () => Trade[] },
-  backtestMode: { required: false, default: false, type: Boolean },
-});
+const props = withDefaults(
+  defineProps<{
+    trades: Trade[];
+    backtestMode?: boolean;
+  }>(),
+  {
+    backtestMode: false,
+  },
+);
 const emit = defineEmits<{ 'trade-select': [trade: Trade] }>();
 
 const botStore = useBotStore();
@@ -26,8 +29,8 @@ const onTradeSelect = (trade: Trade) => {
 const sortedTrades = computed(() => {
   const field: keyof Trade = sortMethod.value === 'profit' ? 'profit_ratio' : 'open_timestamp';
   return sortDescendingOrder.value
-    ? props.trades.slice().sort((a, b) => b[field] - a[field])
-    : props.trades.slice().sort((a, b) => a[field] - b[field]);
+    ? props.trades.slice().sort((a, b) => (b[field] ?? 0) - (a[field] ?? 0))
+    : props.trades.slice().sort((a, b) => (a[field] ?? 0) - (b[field] ?? 0));
 });
 
 const ordersVisible = ref(sortedTrades.value.map(() => false));
