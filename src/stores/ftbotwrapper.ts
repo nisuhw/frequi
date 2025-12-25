@@ -274,6 +274,20 @@ export const useBotStore = defineStore('ftbot-wrapper', {
         console.warn(`bot ${botId} not found! could not remove`);
       }
     },
+    clearAllBots() {
+      console.log('Clearing all bots');
+      Object.keys(this.availableBots).forEach((botId) => {
+        const bot = this.botStores[botId];
+        if (bot) {
+          bot.logout();
+          bot.$dispose();
+        }
+      });
+      this.botStores = {};
+      this.availableBots = {};
+      this.selectedBot = '';
+      localStorage.removeItem(AUTH_SELECTED_BOT);
+    },
     selectFirstBot() {
       if (this.hasBots) {
         const selBotId = localStorage.getItem(AUTH_SELECTED_BOT);

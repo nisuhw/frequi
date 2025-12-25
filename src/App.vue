@@ -18,6 +18,7 @@ watch(
   <div id="app" class="flex flex-col h-dvh" :style="colorStore.cssVars">
     <NavBar />
     <Toast />
+    <ConfirmDialog />
     <BodyLayout class="grow overflow-auto" />
     <NavFooter />
   </div>

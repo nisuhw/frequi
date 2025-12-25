@@ -42,7 +42,15 @@ export function useLoginInfo(botId: string) {
   console.log('botId', botId);
 
   const currentInfo = computed({
-    get: () => allLoginInfos.value[botId]!,
+    get: () =>
+      allLoginInfos.value[botId] ?? {
+        botName: '',
+        apiUrl: '',
+        username: '',
+        accessToken: '',
+        refreshToken: '',
+        autoRefresh: false,
+      },
     set: (val) => (allLoginInfos.value[botId] = val),
   });
 
@@ -165,9 +173,14 @@ export function useLoginInfo(botId: string) {
     });
   }
 
+  function initializeBot(info: AuthStorage): void {
+    currentInfo.value = info;
+  }
+
   return {
     updateBot,
     getLoginInfo,
+    initializeBot, // Export the new function
     autoRefresh,
     accessToken,
     logout,

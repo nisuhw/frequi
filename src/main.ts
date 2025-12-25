@@ -5,7 +5,7 @@ import App from './App.vue';
 import { VueDraggableGrid } from './plugins/vue-grid-layout';
 import router from './router';
 
-import { PrimeVue, FtTheme, ToastService } from './plugins/primevue';
+import { PrimeVue, FtTheme, ToastService, ConfirmationService } from './plugins/primevue';
 
 const myApp = createApp(App);
 
@@ -26,6 +26,7 @@ myApp.use(PrimeVue, {
   },
 });
 myApp.use(ToastService);
+myApp.use(ConfirmationService);
 
 myApp.use(router);
 myApp.use(VueDraggableGrid);
